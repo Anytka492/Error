@@ -4,7 +4,8 @@ from .models import Post
 
 
 class PostForm(forms.ModelForm):
-    text = forms.CharField(min_length=20)
+    title = forms.CharField(min_length=10, max_length=100, label='Заголовок')
+    text = forms.CharField(widget=forms.Textarea({'rows': '5'}), label='Содержимое', min_length=200)
     class Meta:
         model = Post
         fields = [

@@ -27,13 +27,19 @@ class Author(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=64, unique=True)
+    subscribers = models.ManyToManyField(User, verbose_name='Подписчики',
+                                         related_name='cats')
+
+    class Meta:
+        verbose_name = 'Категория'
+        verbose_name_plural = 'Категории'
 
     def __str__(self):
-        return self.name.title()
+        return f'{self.name}'
 
 
 class Post(models.Model):
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='writer', verbose_name='Автор')
 
     NEWS = 'NW'
     ARTICLE = 'AR'
@@ -41,11 +47,11 @@ class Post(models.Model):
         (NEWS, 'Новость'),
         (ARTICLE, 'Статься'),
     )
-    categoryType = models.CharField(max_length=2, choices=CATEGORY_CHOICES, default=ARTICLE)
+    categoryType = models.CharField(max_length=2, choices=CATEGORY_CHOICES, default=ARTICLE, verbose_name='Тип поста')
     dateCreation = models.DateTimeField(auto_now_add=True)
-    postCategory = models.ManyToManyField(Category, through='PostCategory')
-    title = models.CharField(max_length=128)
-    text = models.TextField()
+    postCategory = models.ManyToManyField(Category, through='PostCategory', verbose_name='Категория')
+    title = models.CharField(max_length=128, verbose_name='Заголовок')
+    text = models.TextField(verbose_name='Содержимое')
     rating = models.SmallIntegerField(default=0)
 
     def like(self):

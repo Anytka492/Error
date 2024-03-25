@@ -82,6 +82,32 @@ class PostList(LoginRequiredMixin, ListView):
     context_object_name = 'news'
     paginate_by = 10
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_author'] = self.request.user.groups.filter(name='authors').exists()
+        return context
+
+
+class PostDetail(DetailView):
+    model = Post
+    template_name = 'news.html'
+    context_object_name = 'Post'
+    pk_url_kwarg = 'pk'
+
+    def get_object(self, *args, **kwargs):
+        obj = cache.get(f'post-{self.kwargs["pk"]}', None)
+
+        if not obj:
+            obj = super().get_object(queryset=self.queryset)
+            cache.set(f'post-{self.kwargs["pk"]}', obj)
+        return obj
+
+class PostSearch(ListView):
+    form_class = PostFilter
+    model = Post
+    template_name = 'news_search.html'
+    context_object_name = 'Posts'
+
     def get_queryset(self):
         queryset = super().get_queryset()
         self.filterset = PostFilter(self.request.GET, queryset)
@@ -91,20 +117,20 @@ class PostList(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['is_author'] = self.request.user.groups.filter(name='authors').exists()
         context['time_now'] = datetime.utcnow()
-        context['next_post'] = None
+        context['next_sale'] = "Следующие новости скоро опубликуем!"
         context['filterset'] = self.filterset
         return context
 
+def create_news(request):
+    form = PostForm()
 
-class PostDetail(DetailView):
-    model = Post
-    template_name = 'news.html'
-    context_object_name = 'article'
+    if request.method == 'POST':
+        form = PostForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect('/news/')
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['time_now'] = datetime.utcnow()
-        return context
+    return render(request, 'news_create.html', {'form': form})
 
 
 class PostCreate(PermissionRequiredMixin, CreateView):
@@ -120,7 +146,7 @@ class PostCreate(PermissionRequiredMixin, CreateView):
         time_now = datetime.now()
         time_day_ago = time_now - timedelta(hours=24)
         post_list = Post.objects.filter(Q(post_creation_date__gte=time_day_ago) & Q(
-            author_name=form.instance.author_name))
+            author=form.instance.author))
         if len(post_list) <= 3:
             return super().form_valid(form)
         else:
@@ -128,16 +154,16 @@ class PostCreate(PermissionRequiredMixin, CreateView):
 
     def post(self, request, *args, **kwargs):
         p = Post(title=request.POST['title'],
-                 post_content=request.POST['post_content'],
-                 post_type=request.POST['post_type'],
-                 author_name=Author.objects.get(id=request.POST['author_name']),
+                 text=request.POST['text'],
+                 categoryType=request.POST['categoryType'],
+                 author=Author.objects.get(id=request.POST['author']),
                  )
         p.save()
         subscribers_list = []
         email_list = set()
-        selected_categories = request.POST.getlist('post_category')
+        selected_categories = request.POST.getlist('postCategory')
         for i in selected_categories:
-            p.post_category.add(i)
+            p.postCategory.add(i)
             subscribers_list.append(User.objects.filter(cats=i))
 
         for user_obj in subscribers_list:
